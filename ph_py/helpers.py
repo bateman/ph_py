@@ -79,7 +79,8 @@ def parse_posts(posts):
             posts["comments"],
             posts["votes"],
             posts["related_links"],
-            posts["install_links"]
+            posts["install_links"],
+            posts["media"]
         )
 
 

@@ -1,11 +1,15 @@
-from .models.post import Post
-from .models.vote import Vote
-from .models.user import User
+from .models.badges import Badge
 from .models.comment import Comment
-from .models.related_link import RelatedLink
+from .models.external_link import ExternalLink
 from .models.install_link import InstallLink
-from .models.user_details import UserDetails
+from .models.media import Media
 from .models.notification import Notification
+from .models.post import Post
+from .models.related_link import RelatedLink
+from .models.topics import Topic
+from .models.user import User
+from .models.user_details import UserDetails
+from .models.vote import Vote
 
 
 def parse_notifications(notifications):
@@ -80,7 +84,22 @@ def parse_posts(posts):
             posts["votes"],
             posts["related_links"],
             posts["install_links"],
-            posts["media"]
+            posts["related_posts"],
+            posts["media"],
+            posts["description"],
+            posts["topics"],
+            posts["external_links"],
+            posts["featured"],
+            posts["exclusive"],
+            posts["product_state"],
+            posts["category_id"],
+            posts["badges"],
+            posts["reviews_count"],
+            posts["positive_reviews_count"],
+            posts["negative_reviews_count"],
+            posts["neutral_reviews_count"],
+            posts["makers"],
+            posts["platforms"]
         )
 
 
@@ -94,9 +113,11 @@ def parse_users(users):
                 user["created_at"],
                 user["username"],
                 user["image_url"],
-                user["profile_url"]
+                user["profile_url"],
+                user["twitter_username"],
+                user["website_url"]
             ) for user in users]
-    else:
+    elif users:
         return User(
             users["id"],
             users["name"],
@@ -104,8 +125,12 @@ def parse_users(users):
             users["created_at"],
             users["username"],
             users["image_url"],
-            users["profile_url"]
+            users["profile_url"],
+            users["twitter_username"],
+            users["website_url"]
         )
+    else:
+        return None
 
 
 def parse_votes(votes):
@@ -149,6 +174,7 @@ def parse_related_links(related_links):
             related_links["user_id"],
         )
 
+
 def parse_install_links(install_links):
     if isinstance(install_links, list):
         return [
@@ -160,11 +186,12 @@ def parse_install_links(install_links):
             ) for install_link in install_links]
     elif install_links:
         return InstallLink(
-                install_links["platform"],
-                install_links["created_at"],
-                install_links["redirect_url"],
-                install_links["post_id"],
-            )
+            install_links["platform"],
+            install_links["created_at"],
+            install_links["redirect_url"],
+            install_links["post_id"],
+        )
+
 
 def parse_comments(comments):
     if isinstance(comments, list):
@@ -194,3 +221,75 @@ def parse_comments(comments):
             comments["user"],
             comments["child_comments"],
         )
+
+
+def parse_topics(topics):
+    if isinstance(topics, list):
+        return [Topic(
+            topic["id"],
+            topic["name"],
+            topic["slug"]
+        ) for topic in topics]
+    else:
+        return None
+
+
+def parse_badges(badges):
+    if isinstance(badges, list):
+        return [Badge(
+            badge["id"],
+            badge["type"],
+            badge["data"]["date"],
+            badge["data"]["period"],
+            badge["data"]["position"]
+        ) for badge in badges]
+    else:
+        return None
+
+
+def parse_platforms(platforms):
+    if isinstance(platforms, list) and platforms:
+        pass
+    else:
+        return None
+
+
+def parse_external_links(external_links):
+    if isinstance(external_links, list) and external_links:
+        return [ExternalLink(
+            external_link["id"],
+            external_link["title"],
+            external_link["description"],
+            external_link["author"],
+            external_link["source"],
+            external_link["url"],
+            external_link["favicon_image_uuid"],
+            external_link["link_type"]
+        ) for external_link in external_links]
+    else:
+        return None
+
+
+def parse_media(media):
+    if isinstance(media, list) and media:
+        return [Media(
+            m["id"],
+            m["kindle_asin"],
+            m["media_type"],
+            m["priority"],
+            m["platform"],
+            m["video_id"],
+            m["original_width"],
+            m["original_height"],
+            m["image_url"],
+            m["metadata"]["url"],
+        ) for m in media]
+    else:
+        return None
+
+
+def parse_related_posts(posts):
+    if isinstance(posts, list) and posts:
+        return [post["id"] for post in posts]
+    else:
+        return None

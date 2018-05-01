@@ -266,3 +266,18 @@ class ProductHuntClient:
     def delete_related_link(self, post_id, related_link_id):
         related_link = self.make_request("DELETE", "posts/%d/related_links/%d" % (post_id, related_link_id), None, "user")
         return parse_related_links(related_link)
+
+    def get_rate_limit_remaining(self):
+        url = self.API_BASE + "me"
+        headers = self.build_header("user")
+        response = r.get(url, headers=headers, data=None)
+        try:
+            json_data = response.json()
+            if response.status_code in self.ERROR_CODES:
+                raise ProductHuntError(json_data["error_description"], response.status_code)
+            else:
+                limit = response.headers['X-Rate-Limit-Remaining']
+                return int(limit)
+        except JSONDecodeError:
+            raise ProductHuntError("Error in parsing JSON from the Product Hunt API")
+

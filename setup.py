@@ -55,7 +55,7 @@ setup(
     # simple. Or you can use find_packages().
     packages=find_packages(),
 
-    # List run-time dependencies here.  These will be installed by pip when your
+    # List get_daily_posts-time dependencies here.  These will be installed by pip when your
     # project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/technical.html#install-requires-vs-requirements-files

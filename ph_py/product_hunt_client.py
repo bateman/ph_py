@@ -1,20 +1,26 @@
+import logging
+from time import sleep
+
 import requests as r
+from simplejson.scanner import JSONDecodeError
+
+from .error import ProductHuntError
+from .helpers import parse_comments
+from .helpers import parse_details
+from .helpers import parse_followings_or_followers
+from .helpers import parse_notifications
 from .helpers import parse_posts
+from .helpers import parse_related_links
+from .helpers import parse_user
 from .helpers import parse_users
 from .helpers import parse_votes
-from .helpers import parse_details
-from .helpers import parse_comments
-from .error import ProductHuntError
-from .helpers import parse_notifications
-from .helpers import parse_related_links
-from simplejson.scanner import JSONDecodeError
 
 
 class ProductHuntClient:
-
     API_VERSION = 1
     API_BASE = "https://api.producthunt.com/v%d/" % API_VERSION
     ERROR_CODES = (401, 403, 404, 422)
+    logger = log = logging.getLogger('ph_py')
 
     def __init__(self, client_id, client_secret, redirect_uri, dev_token=None):
         self.client_id = client_id
@@ -71,7 +77,7 @@ class ProductHuntClient:
 
     def build_authorize_url(self):
         url = self.API_BASE + "oauth/authorize?client_id=%s&redirect_uri=%s&response_type=code&scope=public private" % \
-            (self.client_id, self.redirect_uri)
+              (self.client_id, self.redirect_uri)
 
         return url
 
@@ -132,6 +138,25 @@ class ProductHuntClient:
         post = self.make_request("POST", "posts", data, "user")
         return parse_posts(post["post"])
 
+    def find_post_by_slug(self, slug, context="user"):
+        post_id = None
+        url = self.API_BASE + "posts/all"
+        data = {
+            "search[slug]": slug
+        }
+        headers = self.build_header(context)
+        response = r.get(url, headers=headers, data=data)
+        try:
+            json_data = response.json()
+            if response.status_code in self.ERROR_CODES:
+                raise ProductHuntError(json_data["error_description"], response.status_code)
+            else:
+                if json_data and json_data['posts']:
+                    post_id = json_data['posts'][0]['id']
+        except JSONDecodeError:
+            raise ProductHuntError("Error in parsing JSON from the Product Hunt API")
+        return post_id
+
     # Notification-related functions
     def show_notifications(self, older=None, newer=None, per_page=100, order=None):
         data = {
@@ -169,6 +194,21 @@ class ProductHuntClient:
         user = self.make_request("GET", "users/%s" % username, None, context)
         return parse_users(user["user"])
 
+    def get_details_of_user(self, username, context="client"):
+        self.wait_if_no_rate_limit_remaining()
+        user = self.make_request("GET", "users/%s" % username, None, context)
+        u = parse_user(user["user"])
+        if u.votes_count > 50:  # it is incomplete, retrieve as paginated
+            u_votes = self.get_user_votes(u.id)
+            u.votes = u_votes
+        if u.followers_count > 50:  # it is incomplete, retrieve as paginated
+            u_followers = self.get_user_followers(u.id)
+            u.followers = u_followers
+        if u.followings_count > 50:  # it is incomplete, retrieve as paginated
+            u_followings = self.get_user_followings(u.id)
+            u.followings = u_followings
+        return u
+
     # Vote-related functions
     def create_vote(self, post_id):
         vote = self.make_request("POST", "posts/%d/vote" % post_id, None, "user")
@@ -179,8 +219,9 @@ class ProductHuntClient:
 
         return parse_votes(vote)
 
-    def get_user_votes(self, user_id, older=None, newer=None, per_page=100, order=None, context="client"):
-        data = {"per_page": per_page}
+    def get_user_votes(self, user_id, older=None, newer=None, per_page=50, order=None, context="client"):
+        votes_list = list()
+        data = {"per_page": per_page, "page": 1}
 
         if older:
             data["older"] = older
@@ -189,8 +230,56 @@ class ProductHuntClient:
         if order:
             data["order"] = order
 
+        self.wait_if_no_rate_limit_remaining()
         votes = self.make_request("GET", "users/%d/votes" % user_id, data, context)
-        return parse_votes(votes["votes"])
+        while votes["votes"]:
+            votes_list = votes_list + parse_votes(votes["votes"])
+            data["page"] = data["page"] + 1
+            self.wait_if_no_rate_limit_remaining()
+            votes = self.make_request("GET", "users/%d/votes" % user_id, data, context)
+
+        return votes_list
+
+    def get_user_followers(self, user_id, older=None, newer=None, per_page=50, order=None, context="client"):
+        followers_list = list()
+        data = {"per_page": per_page, "page": 1}
+
+        if older:
+            data["older"] = older
+        if newer:
+            data["newer"] = newer
+        if order:
+            data["order"] = order
+
+        self.wait_if_no_rate_limit_remaining()
+        users = self.make_request("GET", "users/%d/followers" % user_id, data, context)
+        while users["followers"]:
+            followers_list = followers_list + parse_followings_or_followers(users["followers"])
+            data["page"] = data["page"] + 1
+            self.wait_if_no_rate_limit_remaining()
+            users = self.make_request("GET", "users/%d/followers" % user_id, data, context)
+
+        return followers_list
+
+    def get_user_followings(self, user_id, older=None, newer=None, per_page=50, order=None, context="client"):
+        followers_list = list()
+        data = {"per_page": per_page, "page": 1}
+
+        if older:
+            data["older"] = older
+        if newer:
+            data["newer"] = newer
+        if order:
+            data["order"] = order
+
+        self.wait_if_no_rate_limit_remaining()
+        users = self.make_request("GET", "users/%d/following" % user_id, data, context)
+        while users["following"]:
+            followers_list = followers_list + parse_followings_or_followers(users["following"])
+            data["page"] = data["page"] + 1
+            self.wait_if_no_rate_limit_remaining()
+            users = self.make_request("GET", "users/%d/following" % user_id, data, context)
+        return followers_list
 
     def get_post_votes(self, post_id, older=None, newer=None, per_page=100, order=None, context="client"):
         data = {"per_page": per_page}
@@ -256,7 +345,7 @@ class ProductHuntClient:
 
         related_link = self.make_request("POST", "posts/%d/related_links" % post_id, data, "user")
         return parse_related_links(related_link)
-    
+
     def update_related_link(self, post_id, related_link_id, title):
         data = {"title": title}
 
@@ -264,7 +353,8 @@ class ProductHuntClient:
         return parse_related_links(related_link)
 
     def delete_related_link(self, post_id, related_link_id):
-        related_link = self.make_request("DELETE", "posts/%d/related_links/%d" % (post_id, related_link_id), None, "user")
+        related_link = self.make_request("DELETE", "posts/%d/related_links/%d" % (post_id, related_link_id), None,
+                                         "user")
         return parse_related_links(related_link)
 
     def get_rate_limit_remaining(self):
@@ -277,7 +367,18 @@ class ProductHuntClient:
                 raise ProductHuntError(json_data["error_description"], response.status_code)
             else:
                 limit = response.headers['X-Rate-Limit-Remaining']
-                return int(limit)
+                reset = response.headers['X-Rate-Limit-Reset']
+                return int(limit), int(reset)
         except JSONDecodeError:
             raise ProductHuntError("Error in parsing JSON from the Product Hunt API")
 
+    def wait_if_no_rate_limit_remaining(self):
+        """ 900 API calls allowed every 15 minutes """
+        limit_remaining, reset = self.get_rate_limit_remaining()
+        if limit_remaining < 50:
+            self.logger.info('API rate limit approaching, going to wait for %s min until reset' % round(reset / 60, 1))
+            sleep(reset)
+            self.logger.info("Resuming, API calls now remaining %s (%s min until reset)" % (limit_remaining,
+                                                                                            round(reset / 60, 1)))
+        else:
+            self.logger.debug("API calls remaining %s (%s min until reset)" % (limit_remaining, round(reset / 60, 1)))

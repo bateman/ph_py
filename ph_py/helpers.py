@@ -80,6 +80,7 @@ def parse_posts(posts):
             posts["maker_inside"],
             posts["user"],
             posts["current_user"] if "current_user" in posts else None,
+            # added
             posts["comments"],
             posts["votes"],
             posts["related_links"],
@@ -133,22 +134,72 @@ def parse_users(users):
         return None
 
 
+def parse_user(user):
+    if user:
+        return User(
+            user["id"],
+            user["name"],
+            user["headline"],
+            user["created_at"],
+            user["username"],
+            user["image_url"],
+            user["profile_url"],
+            user["twitter_username"],
+            user["website_url"],
+            # added
+            user["collections_count"],
+            user["followed_topics_count"],
+            user["followers"],
+            user["followers_count"],
+            user["followings"],
+            user["followings_count"],
+            user["header_image_url"],
+            user["maker_of"],
+            user["maker_of_count"],
+            user["posts"],
+            user["posts_count"],
+            user["votes"],
+            user["votes_count"]
+            # mancano collections_followed_count, daily_strake
+        )
+    else:
+        return None
+
+
+def parse_followings_or_followers(users):
+    if isinstance(users, list):
+        return [
+            {
+                "id": user["user"]["id"],
+                "created_at": user["created_at"],
+                "name":  user["user"]["name"],
+                "username":  user["user"]["username"]
+            } for user in users]
+    elif users:
+        return {
+            "id": users["user"]["id"],
+            "created_at": users["created_at"],
+            "name":  users["user"]["name"],
+            "username":  users["user"]["username"]
+        }
+
+
 def parse_votes(votes):
     if isinstance(votes, list):
         return [
-            Vote(
-                vote["id"],
-                vote["created_at"],
-                vote["post_id"],
-                vote["user"]
-            ) for vote in votes]
+            {
+                "id": vote["id"],
+                "created_at": vote["created_at"],
+                "post_id": vote["post_id"],
+                "user_id": vote["user_id"]
+            } for vote in votes]
     elif votes:
-        return Vote(
-            votes["id"],
-            votes["created_at"],
-            votes["post_id"],
-            votes["user"]
-        )
+        return {
+            "id": votes["id"],
+            "created_at": votes["created_at"],
+            "post_id": votes["post_id"],
+            "user_id": votes["user_id"]
+        }
 
 
 def parse_related_links(related_links):

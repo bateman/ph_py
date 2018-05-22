@@ -43,4 +43,3 @@ class Post:
         self.badges = helpers.parse_badges(badges)
         self.related_posts = helpers.parse_related_posts(related_posts)
         self.media = helpers.parse_media(media)
-        pass

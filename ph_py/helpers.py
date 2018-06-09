@@ -333,10 +333,17 @@ def parse_media(media):
             m["original_width"],
             m["original_height"],
             m["image_url"],
-            m["metadata"]["url"],
+            _get_metadata_url(m),
         ) for m in media]
     else:
         return None
+
+
+def _get_metadata_url(media):
+    metadata_url = None
+    if media["metadata"]:
+        metadata_url = media["metadata"]["url"]
+    return metadata_url
 
 
 def parse_related_posts(posts):

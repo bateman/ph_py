@@ -20,7 +20,7 @@ class ProductHuntClient:
     API_VERSION = 1
     API_BASE = "https://api.producthunt.com/v%d/" % API_VERSION
     ERROR_CODES = (401, 403, 404, 422)
-    logger = log = logging.getLogger('ph_py')
+    logger = logging.getLogger('ph_client')
 
     def __init__(self, client_id, client_secret, redirect_uri, dev_token=None):
         self.client_id = client_id
@@ -72,8 +72,9 @@ class ProductHuntClient:
                     raise ProductHuntError(json_data["error_description"], response.status_code)
 
             return json_data
-        except JSONDecodeError:
-            raise ProductHuntError("Error in parsing JSON from the Product Hunt API")
+        except JSONDecodeError as je:
+            self.logger.error(str(je))
+            raise ProductHuntError("Error in parsing JSON from the Product Hunt API when making a request")
 
     def build_authorize_url(self):
         url = self.API_BASE + "oauth/authorize?client_id=%s&redirect_uri=%s&response_type=code&scope=public private" % \
@@ -153,7 +154,8 @@ class ProductHuntClient:
             else:
                 if json_data and json_data['posts']:
                     post_id = json_data['posts'][0]['id']
-        except JSONDecodeError:
+        except JSONDecodeError as je:
+            self.logger.error(str(je))
             raise ProductHuntError("Error in parsing JSON from the Product Hunt API")
         return post_id
 
@@ -369,16 +371,20 @@ class ProductHuntClient:
                 limit = response.headers['X-Rate-Limit-Remaining']
                 reset = response.headers['X-Rate-Limit-Reset']
                 return int(limit), int(reset)
-        except JSONDecodeError:
-            raise ProductHuntError("Error in parsing JSON from the Product Hunt API")
+        except JSONDecodeError as je:
+            self.logger.error(str(je))
+            raise ProductHuntError("Error in parsing JSON from the Product Hunt API when checking API limit")
 
     def wait_if_no_rate_limit_remaining(self):
         """ 900 API calls allowed every 15 minutes """
         limit_remaining, reset = self.get_rate_limit_remaining()
         if limit_remaining < 50:
-            self.logger.info('API rate limit approaching, going to wait for %s min until reset' % round(reset / 60, 1))
+            self.logger.info(
+                'API rate limit approaching, going to wait for about %s min until reset' % round(reset / 60, 1))
             sleep(reset)
+            limit_remaining, reset = self.get_rate_limit_remaining()
             self.logger.info("Resuming, API calls now remaining %s (%s min until reset)" % (limit_remaining,
-                                                                                            round(reset / 60, 1)))
+                                                                                            int(reset / 60)))
         else:
-            self.logger.debug("API calls remaining %s (%s min until reset)" % (limit_remaining, round(reset / 60, 1)))
+            self.logger.debug(
+                "API calls remaining %s (about %s min until reset)" % (limit_remaining, round(reset / 60, 1)))

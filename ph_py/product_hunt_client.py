@@ -201,14 +201,23 @@ class ProductHuntClient:
         user = self.make_request("GET", "users/%s" % username, None, context)
         u = parse_user(user["user"])
         if u.votes_count > 50:  # it is incomplete, retrieve as paginated
-            u_votes = self.get_user_votes(u.id)
-            u.votes = u_votes
+            try:
+                u_votes = self.get_user_votes(u.id)
+                u.votes = u_votes
+            except KeyError as ke:
+                self.logger.warning(str(ke))
         if u.followers_count > 50:  # it is incomplete, retrieve as paginated
-            u_followers = self.get_user_followers(u.id)
-            u.followers = u_followers
+            try:
+                u_followers = self.get_user_followers(u.id)
+                u.followers = u_followers
+            except KeyError as ke:
+                self.logger.warning(str(ke))
         if u.followings_count > 50:  # it is incomplete, retrieve as paginated
-            u_followings = self.get_user_followings(u.id)
-            u.followings = u_followings
+            try:
+                u_followings = self.get_user_followings(u.id)
+                u.followings = u_followings
+            except KeyError as ke:
+                self.logger.warning(str(ke))
         return u
 
     # Vote-related functions

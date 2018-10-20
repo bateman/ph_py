@@ -381,8 +381,9 @@ class ProductHuntClient:
                 reset = response.headers['X-Rate-Limit-Reset']
                 return int(limit), int(reset)
         except JSONDecodeError as je:
-            self.logger.error(str(je))
-            raise ProductHuntError("Error in parsing JSON from the Product Hunt API when checking API limit")
+            self.logger.warning(str(je))
+            # raise ProductHuntError("Error in parsing JSON from the Product Hunt API when checking API limit")
+            self.logger.warning("An error occurred parsing JSON when checking API limit")
 
     def wait_if_no_rate_limit_remaining(self):
         """ 900 API calls allowed every 15 minutes """

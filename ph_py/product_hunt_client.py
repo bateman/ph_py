@@ -199,7 +199,12 @@ class ProductHuntClient:
     def get_details_of_user(self, username, context="client"):
         self.wait_if_no_rate_limit_remaining()
         user = self.make_request("GET", "users/%s" % username, None, context)
-        u = parse_user(user["user"])
+        try:
+            u = parse_user(user["user"])
+        except KeyError:
+            self.logger.warning("Trying to recover from KeyError while getting `user` %s" % username)
+            user = self.make_request("GET", "users/%s" % username, None, context)
+            u = parse_user(user["user"])
         if u.votes_count > 50:  # it is incomplete, retrieve as paginated
             try:
                 u_votes = self.get_user_votes(u.id)

@@ -391,15 +391,18 @@ class ProductHuntClient:
             self.logger.warning("An error occurred parsing JSON when checking API limit")
 
     def wait_if_no_rate_limit_remaining(self):
-        """ 900 API calls allowed every 15 minutes """
-        limit_remaining, reset = self.get_rate_limit_remaining()
-        if limit_remaining < 50:
-            self.logger.info(
-                'API rate limit approaching, going to wait for about %s min until reset' % round(reset / 60, 1))
-            sleep(reset)
+        try:
+            """ 900 API calls allowed every 15 minutes """
             limit_remaining, reset = self.get_rate_limit_remaining()
-            self.logger.info("Resuming, API calls now remaining %s (%s min until reset)" % (limit_remaining,
-                                                                                            int(reset / 60)))
-        else:
-            self.logger.debug(
-                "API calls remaining %s (about %s min until reset)" % (limit_remaining, round(reset / 60, 1)))
+            if limit_remaining < 50:
+                self.logger.info(
+                    'API rate limit approaching, going to wait for about %s min until reset' % round(reset / 60, 1))
+                sleep(reset)
+                limit_remaining, reset = self.get_rate_limit_remaining()
+                self.logger.info("Resuming, API calls now remaining %s (%s min until reset)" % (limit_remaining,
+                                                                                                int(reset / 60)))
+            else:
+                self.logger.debug(
+                    "API calls remaining %s (about %s min until reset)" % (limit_remaining, round(reset / 60, 1)))
+        except TypeError as te:
+            self.logger.error("Trying to ignore error while checking API limits: %s" % str(te))
